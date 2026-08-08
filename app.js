@@ -8,6 +8,7 @@ let STATE = {};
 
 async function refresh(){
   STATE = await API("overview");
+  try { STATE.todayStr = (await API("today")).date; } catch(e){ STATE.todayStr = ""; }
   const v = document.querySelector(".tab.active")?.dataset.view || "overview";
   render(v);
 }
@@ -82,13 +83,15 @@ function render(view){
     areas:r=>`<div class="card"><h3>${esc(r.name)}</h3><div class="meta">${esc(r.description||"")}</div></div>`,
     projects:r=>`<div class="row"><div class="t"><b>${esc(r.name)}</b><div class="meta">area #${r.area_id||"—"}</div></div>${pill(r.status)}</div>`,
     notes:r=>`<div class="card"><h3>${esc(r.title||"(untitled)")}</h3><div class="meta">${esc(r.folder||"inbox")} · ${esc(r.tags||"")} · ${esc(r.created||"")}</div><div style="margin-top:6px;color:var(--dim)">${esc((r.body||"").slice(0,160))}</div></div>`,
-    habits:r=>`<div class="row"><div class="t"><b>${esc(r.name)}</b><div class="meta">${esc(r.frequency||"daily")} · area #${r.area_id||"—"}</div></div>${pill("🔥 "+r.streak,"good")}</div>`,
+    habits:r=>`<div class="row"><div class="t"><b>${esc(r.name)}</b><div class="meta">${esc(r.frequency||"daily")} · area #${r.area_id||"—"} · 🔥${r.streak}</div></div>${r.last_done===STATE.todayStr?pill("done today","good"):`<span class="btn" style="padding:4px 10px" onclick="habitCheckin(${r.id})">check in</span>`}<span style="color:var(--dim);cursor:pointer;margin-left:8px" onclick="deleteRow('habits',${r.id})">✕</span></div>`,
     goals:r=>`<div class="row"><div class="t"><b>${esc(r.title)}</b><div class="meta">${esc(r.target||"")}</div></div>${pill(r.status)}</div>`,
   };
   if(generic[view]){
     const rows=STATE[view]||[];
+    // habits template already includes its own delete X; don't double up
+    const extra = view==="habits" ? "" : `<span style="float:right;color:var(--dim);cursor:pointer" onclick="deleteRow('${view}',${r.id})">✕</span>`;
     M.innerHTML=`<div class="${view==='areas'||view==='notes'?'grid':'view'}">${
-      rows.map(r=>`${generic[view](r)}<span style="float:right;color:var(--dim);cursor:pointer" onclick="deleteRow('${view}',${r.id})">✕</span>`).join("")||'<div class="empty">nothing here yet — hit + add</div>'
+      rows.map(r=>`${generic[view](r)}${extra}`).join("")||'<div class="empty">nothing here yet — hit + add</div>'
     }</div>`;
     return;
   }
@@ -166,6 +169,11 @@ function renderLedger(M){
 
 // seed a starter corpus so the dashboard isn't empty
 async function seed(){
+  const empty = (STATE.counts.areas+STATE.counts.projects+STATE.counts.tasks+
+                 STATE.counts.notes+STATE.counts.habits+STATE.counts.goals)===0;
+  if(!empty && !confirm("Database already has data. Seed anyway? This adds demo rows on top.")){
+    return;
+  }
   const data={
     areas:[{name:"Health",description:"body + recovery"},
            {name:"Work",description:"income + craft"},
@@ -174,10 +182,10 @@ async function seed(){
               {name:"Nightly review",area_id:3,status:"active"}],
     tasks:[{title:"Wire overview endpoint",project_id:1,status:"done",priority:2},
            {title:"Build Kanban board",project_id:1,status:"doing",priority:2},
-           {title:"Add Telegram capture",project_id:1,status:"open",priority:3},
+           {title:"Add capture channels",project_id:1,status:"open",priority:3},
            {title:"Write README",project_id:1,status:"open",priority:1}],
     notes:[{title:"Design notes",folder:"atlas",tags:"ui,api",body:"One DB, one agent. No ChatGPT/Claude MCP relay."},
-           {title:"Recipe: 3-ingredient curry",folder:"kitchen",tags:"food",body:"Sent via Telegram → Hermes classifies → lands here."}],
+           {title:"Recipe: 3-ingredient curry",folder:"kitchen",tags:"food",body:"Captured via bookmarklet → Atlas classifies → lands here."}],
     habits:[{name:"Sleep by 10pm",area_id:1,frequency:"daily",streak:0},
             {name:"Write 200 words",area_id:2,frequency:"daily",streak:0}],
     goals:[{title:"Atlas feels like software that grows with me",area_id:3,status:"active",target:"v1 live"}],

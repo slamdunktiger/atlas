@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.atlas.server</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>REDACTEDREDACTED/atlas/atlas_server.py</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>ATLAS_DB</key>
+    <string>REDACTEDREDACTED/.atlas/atlas.db</string>
+    <key>ATLAS_PORT</key>
+    <string>8731</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>REDACTEDREDACTED/.atlas/atlas.log</string>
+  <key>StandardErrorPath</key>
+  <string>REDACTEDREDACTED/.atlas/atlas.err</string>
+  <key>WorkingDirectory</key>
+  <string>REDACTEDREDACTED/atlas</string>
+</dict>
+</plist>
