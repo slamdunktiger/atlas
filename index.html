@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atlas — single-agent life dashboard</title>
+<style>
+:root{
+  --bg:#0c0e14; --panel:#141821; --panel2:#1b212e; --line:#262d3d;
+  --txt:#e6eaf2; --dim:#8a93a6; --accent:#6ea8fe; --good:#4ade80;
+  --warn:#fbbf24; --bad:#f87171; --purple:#a78bfa;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);
+  font:14px/1.5 ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial}
+a{color:var(--accent);text-decoration:none}
+header{display:flex;align-items:center;gap:14px;padding:14px 20px;
+  border-bottom:1px solid var(--line);background:var(--panel)}
+header h1{font-size:18px;margin:0;letter-spacing:.5px}
+header .tag{color:var(--dim);font-size:12px}
+header .spacer{flex:1}
+.btn{background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+  padding:7px 12px;border-radius:8px;cursor:pointer;font-size:13px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:#0b1120;border-color:var(--accent);font-weight:600}
+.tabs{display:flex;gap:4px;padding:10px 20px 0;border-bottom:1px solid var(--line)}
+.tab{padding:8px 14px;border:1px solid transparent;border-bottom:none;
+  border-radius:8px 8px 0 0;cursor:pointer;color:var(--dim)}
+.tab.active{background:var(--panel);color:var(--txt);border-color:var(--line)}
+main{padding:18px 20px}
+.view{display:none}.view.active{display:block}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.card h3{margin:0 0 6px;font-size:15px}
+.card .meta{color:var(--dim);font-size:12px;margin-top:8px}
+.row{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--line);
+  border-radius:10px;margin-bottom:8px;background:var(--panel)}
+.row .t{flex:1}
+.row .pill{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--panel2);color:var(--dim)}
+.pill.open{color:var(--accent)}.pill.active{color:var(--good)}
+.pill.done{color:var(--dim)}.pill.high{color:var(--bad)}.pill.med{color:var(--warn)}
+input,select,textarea{background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+  border-radius:8px;padding:8px 10px;font:inherit;width:100%}
+label{display:block;font-size:12px;color:var(--dim);margin:10px 0 4px}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;
+  align-items:center;justify-content:center;z-index:50}
+.modal-bg.show{display:flex}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  padding:20px;width:440px;max-width:92vw}
+.modal h3{margin:0 0 12px}
+.modal .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.stat{display:flex;flex-direction:column;gap:2px}
+.stat .n{font-size:26px;font-weight:700}
+.stat .l{color:var(--dim);font-size:12px}
+.ledger{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;
+  color:var(--dim);white-space:pre-wrap}
+.kanban{display:flex;gap:12px;overflow-x:auto}
+.kcol{flex:0 0 280px;background:var(--panel);border:1px solid var(--line);
+  border-radius:12px;padding:10px}
+.kcol h4{margin:0 0 10px;font-size:13px;color:var(--dim)}
+.empty{color:var(--dim);font-style:italic;padding:20px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>🛰️ ATLAS</h1>
+  <span class="tag">single-agent life OS · Hermes is the only brain</span>
+  <span class="spacer"></span>
+  <button class="btn" id="seedBtn">seed demo</button>
+  <button class="btn primary" id="addBtn">+ add</button>
+</header>
+<nav class="tabs" id="tabs">
+  <div class="tab active" data-view="overview">Overview</div>
+  <div class="tab" data-view="tasks">Tasks</div>
+  <div class="tab" data-view="projects">Projects</div>
+  <div class="tab" data-view="notes">Notes</div>
+  <div class="tab" data-view="habits">Habits</div>
+  <div class="tab" data-view="goals">Goals</div>
+  <div class="tab" data-view="areas">Areas</div>
+  <div class="tab" data-view="today">Today</div>
+  <div class="tab" data-view="calendar">Calendar</div>
+  <div class="tab" data-view="board">Board</div>
+  <div class="tab" data-view="ledger">Ledger</div>
+</nav>
+<main id="main"></main>
+<div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
+<script src="/app.js"></script>
+</body>
+</html>

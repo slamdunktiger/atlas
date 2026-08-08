@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atlas · Capture</title>
+<style>
+:root{--bg:#0c0e14;--panel:#141821;--line:#262d3d;--txt:#e6eaf2;--dim:#8a93a6;--accent:#6ea8fe;--good:#4ade80}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.5 ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif;display:flex;justify-content:center;padding:24px}
+.wrap{width:100%;max-width:560px}
+h1{font-size:18px;margin:0 0 4px}
+.sub{color:var(--dim);font-size:13px;margin-bottom:16px}
+textarea,input{width:100%;background:#1b212e;border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:12px;font:inherit}
+label{display:block;color:var(--dim);font-size:12px;margin:12px 0 4px}
+.btn{width:100%;margin-top:16px;background:var(--accent);color:#0b1120;border:none;padding:13px;border-radius:10px;font-weight:600;font-size:15px;cursor:pointer}
+.btn:active{transform:translateY(1px)}
+.result{margin-top:16px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel);font-size:13px;display:none}
+.result b{color:var(--good)}
+.hint{color:var(--dim);font-size:12px;margin-top:8px}
+a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🛰️ Atlas Capture</h1>
+  <div class="sub">Paste anything. It files itself. (single-brain auto-classify)</div>
+  <textarea id="text" rows="9" placeholder="paste recipe, link, thought, snippet…"></textarea>
+  <label>optional: override folder</label>
+  <input id="folder" placeholder="leave blank to auto-classify">
+  <button class="btn" id="send">file it →</button>
+  <div class="hint">Tip: bookmark the <a href="#" id="bm">clip bookmarklet</a> too.</div>
+  <div class="result" id="res"></div>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+async function send(){
+  const text = $('text').value.trim();
+  if(!text){ alert('nothing to capture'); return; }
+  const folder = $('folder').value.trim() || undefined;
+  const r = await fetch('/api/capture',{method:'POST',headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({text, folder})});
+  const j = await r.json();
+  $('res').style.display='block';
+  $('res').innerHTML = `saved → <b>${j.folder}</b> · tags [${j.tags}] · <a href="/">open dashboard</a>`;
+  $('text').value='';
+}
+$('send').onclick=send;
+// build bookmarklet source live so it always points at this host
+const bm = `javascript:(function(){var t=window.getSelection?window.getSelection().toString():'';var u=location.href;var ti=document.title;var x=prompt('Capture to Atlas:',(t||ti));if(x!==null){fetch('${location.origin}/api/capture',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:x,url:u,title:ti})});alert('filed ✓');}})();`;
+$('bm').href = bm;
+$('bm').setAttribute('onclick',"event.preventDefault();prompt('Drag this to your bookmarks bar:', '"+bm.replace(/'/g,"\\'")+"');");
+</script>
+</body>
+</html>
