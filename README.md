@@ -60,6 +60,8 @@ Q2 engines; a single board hides that. Each domain is its own markdown file.
 local-only, pre-edit undo point (deduped, last 50 kept). The board itself
 stays **out of git**; it's your private operational brain, not repo material.
 
+![Atlas Covey tab — the 4-quad board rendered as a dashboard](covey-tab.png)
+
 ## Hermes integration
 Hermes doesn't need an MCP server — it can just call the REST API (or the
 SQLite file directly). Examples:
