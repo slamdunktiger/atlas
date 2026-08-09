@@ -15,13 +15,36 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 INDEX = os.path.join(HERE, "index.html")
 
 # ---- Covey 4-quad mirror: Atlas is the UI over the user's living COVEY-BOARD.md
-# files (per-domain, markdown = source of truth). No global board. ----
-COVEY_ROOT = os.path.expanduser("~/Documents/REDACTED")
+# files (per-domain, markdown = source of truth). No global board.
+#
+# PRIVACY: this repo ships with PLACEHOLDER paths only. Point Atlas at YOUR
+# own board files by setting ATLAS_COVEY_ROOT (an absolute dir holding your
+# per-domain COVEY-BOARD.md files). Set it in ~/.atlas/atlas.env (gitignored,
+# local-only) — never commit your real paths. Falls back to a generic
+# ~/.atlas/covey layout when unset.
+def _load_local_env():
+    """Read ATLAS_* vars from a gitignored local env file, if present.
+    Keeps real paths out of the public repo."""
+    p = os.path.expanduser("~/.atlas/atlas.env")
+    if os.path.exists(p):
+        with open(p, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    os.environ.setdefault(k.strip(), v.strip())
+
+_load_local_env()
+
+COVEY_ROOT = os.environ.get(
+    "ATLAS_COVEY_ROOT",
+    os.path.expanduser("~/.atlas/covey"),   # PLACEHOLDER — override via env
+)
 COVEY_DOMAINS = {
     "general-hopper": os.path.join(COVEY_ROOT, "COVEY-BOARD.md"),
-    "trading":        os.path.expanduser("~/Documents/REDACTED — 2018 MBP Intel/REDACTED da Ballista/REDACTED/REDACTED/Projects/Trading/COVEY-BOARD.md"),
-    "writing":         os.path.expanduser("~/Documents/REDACTED — 2018 MBP Intel/REDACTED da Ballista/REDACTED/REDACTED/Projects/Writing/COVEY-BOARD.md"),
-    "grief-shadow":    os.path.expanduser("~/Documents/REDACTED — 2018 MBP Intel/REDACTED da Ballista/REDACTED/REDACTED/Projects/Grief-Shadow/COVEY-BOARD.md"),
+    "trading":        os.path.join(COVEY_ROOT, "trading-COVEY-BOARD.md"),
+    "writing":        os.path.join(COVEY_ROOT, "writing-COVEY-BOARD.md"),
+    "grief-shadow":    os.path.join(COVEY_ROOT, "grief-shadow-COVEY-BOARD.md"),
 }
 
 def covey_path(domain):

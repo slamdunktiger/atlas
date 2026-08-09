@@ -7,24 +7,28 @@
   <key>ProgramArguments</key>
   <array>
     <string>/usr/bin/python3</string>
-    <string>REDACTEDREDACTED/atlas/atlas_server.py</string>
+    <string>~/atlas/atlas_server.py</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>
     <key>ATLAS_DB</key>
-    <string>REDACTEDREDACTED/.atlas/atlas.db</string>
+    <string>~/.atlas/atlas.db</string>
     <key>ATLAS_PORT</key>
     <string>8731</string>
+    <!-- Point Atlas at YOUR board dir (local-only, do not commit real path):
+    <key>ATLAS_COVEY_ROOT</key>
+    <string>~/path/to/your/covey/boards</string>
+    -->
   </dict>
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>
   <true/>
   <key>StandardOutPath</key>
-  <string>REDACTEDREDACTED/.atlas/atlas.log</string>
+  <string>~/.atlas/atlas.log</string>
   <key>StandardErrorPath</key>
-  <string>REDACTEDREDACTED/.atlas/atlas.err</string>
+  <string>~/.atlas/atlas.err</string>
   <key>WorkingDirectory</key>
-  <string>REDACTEDREDACTED/atlas</string>
+  <string>~/atlas</string>
 </dict>
 </plist>
