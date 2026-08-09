@@ -4,6 +4,9 @@
 *.sqlite
 *.sqlite3
 
+# Private operational context — gitignored, contains PII
+MEMORY-EXTENDED.md
+
 # Python
 __pycache__/
 *.pyc
