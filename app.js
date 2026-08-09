@@ -100,6 +100,7 @@ function render(view){
   if(view==="calendar"){ renderCalendar(M); return; }
   if(view==="board"){ renderBoard(M); return; }
   if(view==="ledger"){ renderLedger(M); return; }
+  if(view==="covey"){ loadCovey(); return; }
 }
 
 function renderTasks(M){
@@ -196,11 +197,79 @@ async function seed(){
   refresh();
 }
 
+// ---- Covey 4-quad mirror: UI over the per-domain COVEY-BOARD.md files ----
+let COVEY = { domain:null, data:null };
+
+async function loadCovey(){
+  const dom = document.getElementById("coveyDomain").value;
+  COVEY.domain = dom;
+  COVEY.data = await API("covey/"+dom);
+  renderCovey(document.getElementById("main"));
+}
+
+function coveyItemRow(it, quad){
+  const status = it.status||"";
+  const note = it.note||"";
+  const cell = (id,val,ph)=>`<input style="background:transparent;border:none;color:var(--txt);width:100%" value="${esc(val)}" placeholder="${ph}" data-line="${it.line}" data-field="${id}" onchange="coveyEdit('${quad}',this)">`;
+  return `<div class="row" style="display:flex;gap:8px;align-items:center">
+    <span class="tag" style="min-width:42px">${esc(it.id)}</span>
+    <div style="flex:2">${cell("task",it.task,"task")}</div>
+    <div style="flex:1">${cell("status",status,"status")}</div>
+    <div style="flex:1">${cell("note",note,"note")}</div>
+    <span style="color:var(--dim);cursor:pointer" onclick="coveyDel('${quad}',${it.line})">✕</span>
+  </div>`;
+}
+
+async function coveyEdit(quad, el){
+  const line = el.dataset.line, field = el.dataset.field, val = el.value;
+  await API(`covey/${COVEY.domain}/${line}`,{method:"PATCH",body:JSON.stringify({[field]:val})});
+  COVEY.data = await API("covey/"+COVEY.domain);
+  renderCovey(document.getElementById("main"));
+}
+async function coveyDel(quad, line){
+  if(!confirm("delete this item from the board?")) return;
+  await API(`covey/${COVEY.domain}/${line}`,{method:"DELETE"});
+  COVEY.data = await API("covey/"+COVEY.domain);
+  renderCovey(document.getElementById("main"));
+}
+function coveyAdd(quad){
+  const task = prompt("New "+quad+" item:");
+  if(!task) return;
+  API(`covey/${COVEY.domain}`,{method:"POST",body:JSON.stringify({quad,task})}).then(()=>loadCovey());
+}
+
+function renderCovey(M){
+  const d = COVEY.data;
+  if(!d){ M.innerHTML='<div class="empty">pick a domain</div>'; return; }
+  const order = ["Q1","Q2","Q3","Q4"];
+  const titles = {Q1:"Q1 · Urgent + Important",Q2:"Q2 · Important, Not Urgent",Q3:"Q3 · Urgent, Not Important",Q4:"Q4 · Not Urgent, Not Important"};
+  const quads = order.map(qid=>{
+    const q = d.quads.find(x=>x.id===qid) || {id:qid,items:[]};
+    const items = (q.items||[]).filter(it=>it.id && it.id.startsWith(qid+".") || (q.id===qid && it.task));
+    const rows = items.map(it=>coveyItemRow(it,qid)).join("") || '<div class="empty">empty</div>';
+    return `<div class="card" style="margin-bottom:14px"><h3 style="margin:0 0 10px">${titles[qid]||qid} <span class="tag">${items.length}</span></h3>${rows}
+      <span class="btn" style="margin-top:8px;display:inline-block" onclick="coveyAdd('${qid}')">+ add to ${qid}</span></div>`;
+  }).join("");
+  const dailies = (d.dailies||[]).map(it=>coveyItemRow(it,"D")).join("")||'<div class="empty">none</div>';
+  M.innerHTML = `<div class="grid" style="grid-template-columns:1fr 1fr">${quads}</div>
+    <div class="card" style="margin-top:14px"><h3>⏰ Dailies (AM #1)</h3>${dailies}</div>`;
+}
+
 // wiring
 document.getElementById("tabs").addEventListener("click",e=>{
   const tab=e.target.closest(".tab"); if(!tab)return;
   document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
   tab.classList.add("active");
+  document.getElementById("coveyBar").style.display = tab.dataset.view==="covey" ? "flex" : "none";
+  if(tab.dataset.view==="covey"){
+    if(!document.getElementById("coveyDomain").options.length){
+      API("covey").then(r=>{
+        const sel=document.getElementById("coveyDomain");
+        sel.innerHTML = r.domains.map(d=>`<option value="${d}">${d}</option>`).join("");
+        loadCovey();
+      });
+    } else { loadCovey(); }
+  }
   render(tab.dataset.view);
 });
 document.getElementById("addBtn").onclick=()=>{

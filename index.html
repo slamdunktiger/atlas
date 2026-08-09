@@ -81,7 +81,13 @@ label{display:block;font-size:12px;color:var(--dim);margin:10px 0 4px}
   <div class="tab" data-view="calendar">Calendar</div>
   <div class="tab" data-view="board">Board</div>
   <div class="tab" data-view="ledger">Ledger</div>
+  <div class="tab" data-view="covey">Covey</div>
 </nav>
+<div id="coveyBar" style="display:none;margin:12px 0;align-items:center;gap:8px">
+  <label style="margin:0">domain</label>
+  <select id="coveyDomain" onchange="loadCovey()"></select>
+  <span class="tag" style="margin-left:auto">markdown = source of truth · edits write back to COVEY-BOARD.md</span>
+</div>
 <main id="main"></main>
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
 <script src="/app.js"></script>

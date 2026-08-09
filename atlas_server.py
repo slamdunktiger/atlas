@@ -14,6 +14,156 @@ PORT = int(os.environ.get("ATLAS_PORT", "8731"))
 HERE = os.path.dirname(os.path.abspath(__file__))
 INDEX = os.path.join(HERE, "index.html")
 
+# ---- Covey 4-quad mirror: Atlas is the UI over the user's living COVEY-BOARD.md
+# files (per-domain, markdown = source of truth). No global board. ----
+COVEY_ROOT = os.path.expanduser("~/Documents/REDACTED")
+COVEY_DOMAINS = {
+    "general-hopper": os.path.join(COVEY_ROOT, "COVEY-BOARD.md"),
+    "trading":        os.path.expanduser("~/Documents/REDACTED — 2018 MBP Intel/REDACTED da Ballista/REDACTED/REDACTED/Projects/Trading/COVEY-BOARD.md"),
+    "writing":         os.path.expanduser("~/Documents/REDACTED — 2018 MBP Intel/REDACTED da Ballista/REDACTED/REDACTED/Projects/Writing/COVEY-BOARD.md"),
+    "grief-shadow":    os.path.expanduser("~/Documents/REDACTED — 2018 MBP Intel/REDACTED da Ballista/REDACTED/REDACTED/Projects/Grief-Shadow/COVEY-BOARD.md"),
+}
+
+def covey_path(domain):
+    p = COVEY_DOMAINS.get(domain)
+    if not p:
+        return None
+    return p if os.path.exists(p) else None
+
+def parse_covey(domain):
+    """Parse a COVEY-BOARD.md into {quads:[{id,title,items:[...]}], dailies:[...]}.
+    Each item keeps its source line number so we can write back surgically."""
+    p = covey_path(domain)
+    if not p:
+        return None
+    with open(p, encoding="utf-8") as f:
+        lines = f.read().split("\n")
+    quads = []
+    dailies = []
+    cur = None          # current quad section
+    in_dailies = False
+    for i, line in enumerate(lines):
+        h = line.strip()
+        if h.startswith("## DAILIES"):
+            in_dailies = True
+            cur = None
+            continue
+        if h.startswith("## "):
+            in_dailies = False
+            title = h[3:].strip()
+            # skip the trailing "Tasks at a Glance" / PINNED / SOURCES fluff
+            if title.upper().startswith(("TASKS AT A GLANCE", "PINNED", "SOURCES", "KEY FOCUS")):
+                cur = None
+                continue
+            cur = {"id": title.split(" ")[0].split("—")[0].strip(),
+                   "title": title, "items": []}
+            quads.append(cur)
+            continue
+        if h.startswith("### "):  # sub-quadrant (Q2.2 Forge etc.)
+            if cur is not None:
+                cur["items"].append({"line": i, "sub": h[4:].strip(), "raw": h})
+            continue
+        if h.startswith("|") and ("ID" in h or "Task" in h or "---" in h or h.startswith("|--")):
+            continue  # header / separator rows
+        if h.startswith("|") and ("Q" in h or h.strip().startswith("| D") or "AM" in h):
+            # a real item row: | Q1.1 | Car brakes check | seed | |
+            cells = [c.strip() for c in h.strip().strip("|").split("|")]
+            if len(cells) >= 2 and cells[0]:
+                cur_item = {"line": i, "id": cells[0], "task": cells[1],
+                            "status": cells[2] if len(cells) > 2 else "",
+                            "note": cells[3] if len(cells) > 3 else ""}
+                if in_dailies:
+                    dailies.append(cur_item)
+                elif cur is not None:
+                    cur["items"].append(cur_item)
+    return {"domain": domain, "quads": quads, "dailies": dailies}
+
+def write_covey_line(domain, line_no, new_line):
+    p = covey_path(domain)
+    with open(p, encoding="utf-8") as f:
+        lines = f.read().split("\n")
+    if 0 <= line_no < len(lines):
+        lines[line_no] = new_line
+        with open(p, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+        return True
+    return False
+
+def covey_item_to_row(item):
+    return {"id": item["id"], "task": item["task"],
+            "status": item.get("status", ""), "note": item.get("note", ""),
+            "line": item["line"]}
+
+def log_covey(domain, msg):
+    """Append a ledger-style note to the DB ledger so covey edits are visible too."""
+    try:
+        conn = get_db()
+        log(conn, "covey", f"edit {domain}", msg)
+        conn.close()
+    except Exception:
+        pass
+
+def _covey_append(domain, quad, new_row):
+    """Append a markdown item row under the matching quad heading, preserving
+    the rest of the file verbatim."""
+    p = covey_path(domain)
+    with open(p, encoding="utf-8") as f:
+        lines = f.read().split("\n")
+    out = []
+    inserted = False
+    for i, line in enumerate(lines):
+        out.append(line)
+        h = line.strip()
+        # insert right after we see the matching quad heading
+        if not inserted and h.startswith("## ") and h.split(" ")[0].split("—")[0].strip() == quad:
+            # insert after the header row + separator if present
+            j = i + 1
+            if j < len(lines) and set(lines[j].strip()) <= set("|- "):
+                out.append(lines[j]); j += 1
+            out.append(new_row)
+            inserted = True
+    if not inserted:
+        out.append(f"\n## {quad}\n| ID | Task | Status | Note |\n|----|------|-------|------|\n{new_row}")
+    with open(p, "w", encoding="utf-8") as f:
+        f.write("\n".join(out))
+
+def covey_patch(domain, line_no, body):
+    p = covey_path(domain)
+    with open(p, encoding="utf-8") as f:
+        lines = f.read().split("\n")
+    if not (0 <= line_no < len(lines)):
+        return False
+    raw = lines[line_no]
+    cells = [c.strip() for c in raw.strip().strip("|").split("|")]
+    if len(cells) < 2:
+        return False
+    # pad to 4 cells FIRST so status/note indexes are always valid
+    while len(cells) < 4:
+        cells.append("")
+    # only update the fields present in body; keep the rest
+    if "task" in body and body["task"]:
+        cells[1] = body["task"]
+    if "status" in body:
+        cells[2] = body["status"]
+    if "note" in body:
+        cells[3] = body["note"]
+    lines[line_no] = "| " + " | ".join(cells[:4]) + " |"
+    with open(p, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+    return True
+
+def covey_delete(domain, line_no):
+    p = covey_path(domain)
+    with open(p, encoding="utf-8") as f:
+        lines = f.read().split("\n")
+    if not (0 <= line_no < len(lines)):
+        return False
+    del lines[line_no]
+    with open(p, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+    return True
+
+
 RESOURCES = {
     "areas":     ["id", "name", "description"],
     "projects":  ["id", "name", "area_id", "status"],
@@ -144,6 +294,18 @@ class Handler(BaseHTTPRequestHandler):
         if parts[1] == "today":
             self._send(200, obj=self.today())
             return
+        if parts[1] == "covey":
+            if len(parts) == 2:
+                # list available domains
+                self._send(200, obj={"domains": list(COVEY_DOMAINS.keys())})
+                return
+            domain = parts[2]
+            data = parse_covey(domain)
+            if data is None:
+                self._send(404, obj={"error": f"board not found for {domain}"})
+                return
+            self._send(200, obj=data)
+            return
         if parts[1] == "habit" and len(parts) == 4 and parts[3] == "checkin":
             self.habit_checkin(int(parts[2]))
             return
@@ -169,6 +331,32 @@ class Handler(BaseHTTPRequestHandler):
             return
         if len(parts) == 4 and parts[1] == "habit" and parts[3] == "checkin":
             self.habit_checkin(int(parts[2]))
+            return
+        if len(parts) == 3 and parts[1] == "covey":
+            # POST /api/covey/<domain>  body: {quad:"Q1", task:"...", status:"", note:""}
+            domain = parts[2]
+            if not covey_path(domain):
+                self._send(404, obj={"error": f"board not found for {domain}"})
+                return
+            body = json_body(self)
+            quad = (body.get("quad") or "Q1").strip()
+            task = (body.get("task") or "").strip()
+            if not task:
+                self._send(400, obj={"error": "task required"})
+                return
+            # next ID in that quad = max existing numeric + 1
+            parsed = parse_covey(domain)
+            ids = [it["id"] for q in parsed["quads"] if q["id"] == quad for it in q["items"]]
+            nums = [int(i.split(".")[1]) for i in ids if i.startswith(quad + ".") and i.split(".")[1].isdigit()]
+            nxt = (max(nums) + 1) if nums else 1
+            new_id = f"{quad}.{nxt}"
+            status = body.get("status", "")
+            note = body.get("note", "")
+            new_row = f"| {new_id} | {task} | {status} | {note} |".rstrip()
+            # append under the matching quad heading in the file
+            _covey_append(domain, quad, new_row)
+            log_covey(domain, f"add {new_id} → {quad}")
+            self._send(201, obj={"id": new_id, "task": task, "status": status, "note": note})
             return
         if len(parts) != 2:
             self._send(400, obj={"error": "bad route"})
@@ -224,6 +412,24 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_PATCH(self):
         parts = [p for p in urllib_parse.urlparse(self.path).path.split("/") if p]
+        if len(parts) == 4 and parts[1] == "covey":
+            # PATCH /api/covey/<domain>/<line>  body: {task?,status?,note?}
+            domain = parts[2]
+            try:
+                line_no = int(parts[3])
+            except ValueError:
+                self._send(400, obj={"error": "line must be int"})
+                return
+            if not covey_path(domain):
+                self._send(404, obj={"error": f"board not found for {domain}"})
+                return
+            ok = covey_patch(domain, line_no, json_body(self))
+            if ok:
+                log_covey(domain, f"patch line {line_no}")
+                self._send(200, obj={"ok": True})
+            else:
+                self._send(404, obj={"error": "line not editable"})
+            return
         if len(parts) != 3:
             self._send(400, obj={"error": "bad route"})
             return
@@ -243,6 +449,23 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_DELETE(self):
         parts = [p for p in urllib_parse.urlparse(self.path).path.split("/") if p]
+        if len(parts) == 4 and parts[1] == "covey":
+            domain = parts[2]
+            try:
+                line_no = int(parts[3])
+            except ValueError:
+                self._send(400, obj={"error": "line must be int"})
+                return
+            if not covey_path(domain):
+                self._send(404, obj={"error": f"board not found for {domain}"})
+                return
+            ok = covey_delete(domain, line_no)
+            if ok:
+                log_covey(domain, f"delete line {line_no}")
+                self._send(200, obj={"ok": True})
+            else:
+                self._send(404, obj={"error": "line not found"})
+            return
         if len(parts) != 3:
             self._send(400, obj={"error": "bad route"})
             return
