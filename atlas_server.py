@@ -346,7 +346,8 @@ class Handler(BaseHTTPRequestHandler):
                 return
             # next ID in that quad = max existing numeric + 1
             parsed = parse_covey(domain)
-            ids = [it["id"] for q in parsed["quads"] if q["id"] == quad for it in q["items"]]
+            ids = [it["id"] for q in parsed["quads"] if q["id"] == quad
+                   for it in q["items"] if "id" in it]
             nums = [int(i.split(".")[1]) for i in ids if i.startswith(quad + ".") and i.split(".")[1].isdigit()]
             nxt = (max(nums) + 1) if nums else 1
             new_id = f"{quad}.{nxt}"
