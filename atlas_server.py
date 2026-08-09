@@ -94,6 +94,39 @@ def covey_item_to_row(item):
             "status": item.get("status", ""), "note": item.get("note", ""),
             "line": item["line"]}
 
+def covey_backup(domain):
+    """Snapshot COVEY-BOARD.md before each edit — local-only undo safety net.
+    Dedupes (skips if identical to the most recent backup) and keeps the last 50.
+    Never touches git; the board stays private + out of the public repo."""
+    try:
+        p = covey_path(domain)
+        if not p:
+            return
+        backup_dir = os.path.join(os.path.dirname(DB_PATH), "covey-backups")
+        os.makedirs(backup_dir, exist_ok=True)
+        ts = datetime.datetime.now().strftime("%Y-%m-%dT%H%M%S")
+        stamp = os.path.basename(p).replace(".md", f"-{ts}.md")
+        dest = os.path.join(backup_dir, stamp)
+        with open(p, encoding="utf-8") as f:
+            content = f.read()
+        # dedupe: skip if identical to the newest existing backup
+        existing = sorted(os.listdir(backup_dir), reverse=True)
+        if existing:
+            with open(os.path.join(backup_dir, existing[0]), encoding="utf-8") as f:
+                if f.read() == content:
+                    return
+        with open(dest, "w", encoding="utf-8") as f:
+            f.write(content)
+        # trim to last 50
+        all_b = sorted(os.listdir(backup_dir))
+        for old in all_b[:-50]:
+            try:
+                os.remove(os.path.join(backup_dir, old))
+            except OSError:
+                pass
+    except Exception:
+        pass
+
 def log_covey(domain, msg):
     """Append a ledger-style note to the DB ledger so covey edits are visible too."""
     try:
@@ -106,6 +139,7 @@ def log_covey(domain, msg):
 def _covey_append(domain, quad, new_row):
     """Append a markdown item row under the matching quad heading, preserving
     the rest of the file verbatim."""
+    covey_backup(domain)
     p = covey_path(domain)
     with open(p, encoding="utf-8") as f:
         lines = f.read().split("\n")
@@ -129,6 +163,7 @@ def _covey_append(domain, quad, new_row):
 
 def covey_patch(domain, line_no, body):
     p = covey_path(domain)
+    covey_backup(domain)
     with open(p, encoding="utf-8") as f:
         lines = f.read().split("\n")
     if not (0 <= line_no < len(lines)):
@@ -154,6 +189,7 @@ def covey_patch(domain, line_no, body):
 
 def covey_delete(domain, line_no):
     p = covey_path(domain)
+    covey_backup(domain)
     with open(p, encoding="utf-8") as f:
         lines = f.read().split("\n")
     if not (0 <= line_no < len(lines)):
