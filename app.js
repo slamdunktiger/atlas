@@ -233,9 +233,31 @@ async function coveyDel(quad, line){
   renderCovey(document.getElementById("main"));
 }
 function coveyAdd(quad){
-  const task = prompt("New "+quad+" item:");
-  if(!task) return;
-  API(`covey/${COVEY.domain}`,{method:"POST",body:JSON.stringify({quad,task})}).then(()=>loadCovey());
+  const M = document.getElementById("main");
+  const card = [...M.querySelectorAll(".card")].find(c=>c.querySelector("h3")?.textContent.includes(quad));
+  if(!card) return;
+  if(card.querySelector(".covey-new")) return; // already open
+  const row = document.createElement("div");
+  row.className = "row covey-new";
+  row.style.cssText = "display:flex;gap:8px;align-items:center;margin-top:6px";
+  row.innerHTML = `<span class="tag" style="min-width:42px">+</span>
+    <input id="coveyNewInput" style="flex:2;background:#1a1a1a;border:1px solid var(--accent,#4af);color:var(--txt);padding:4px 6px;border-radius:4px" placeholder="type task, Enter to save, Esc to cancel" autocomplete="off">
+    <span style="flex:1"></span><span style="flex:1"></span>`;
+  card.appendChild(row);
+  const inp = row.querySelector("#coveyNewInput");
+  inp.focus();
+  const commit = async () => {
+    const task = inp.value.trim();
+    if(!task) { row.remove(); return; }
+    await API(`covey/${COVEY.domain}`,{method:"POST",body:JSON.stringify({quad,task})});
+    COVEY.data = await API("covey/"+COVEY.domain);
+    renderCovey(M);
+  };
+  inp.addEventListener("keydown",e=>{
+    if(e.key==="Enter"){ e.preventDefault(); commit(); }
+    else if(e.key==="Escape"){ e.preventDefault(); row.remove(); }
+  });
+  inp.addEventListener("blur",()=>{ if(inp.value.trim()) commit(); else row.remove(); });
 }
 
 function renderCovey(M){
